@@ -21,12 +21,12 @@ import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.PARAMETE
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.PARAMETER_FORMAT_TIME;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.PARAMETER_SHECDULE_TIME;
 
-import org.apache.dolphinscheduler.plugin.task.api.model.Property;
-import org.apache.dolphinscheduler.spi.enums.CommandType;
+import org.apache.dolphinscheduler.common.utils.DateUtils;
+import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.plugin.task.api.enums.DataType;
-import org.apache.dolphinscheduler.spi.utils.DateUtils;
-import org.apache.dolphinscheduler.spi.utils.JSONUtils;
-import org.apache.dolphinscheduler.spi.utils.StringUtils;
+import org.apache.dolphinscheduler.plugin.task.api.model.Property;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.PreparedStatement;
 import java.util.Date;
@@ -34,23 +34,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * parameter parse utils
  */
 public class ParameterUtils {
 
-    private static final Logger logger = LoggerFactory.getLogger(ParameterUtils.class);
+    private static final Pattern DATE_PARSE_PATTERN = Pattern.compile("\\$\\[([^\\$\\]]+)]");
 
-    private static final String DATE_PARSE_PATTERN = "\\$\\[([^\\$\\]]+)]";
+    private static final Pattern DATE_START_PATTERN = Pattern.compile("^[0-9]");
 
-    private static final String DATE_START_PATTERN = "^[0-9]";
+    private static final char PARAM_REPLACE_CHAR = '?';
 
     private ParameterUtils() {
         throw new UnsupportedOperationException("Construct ParameterUtils");
@@ -73,7 +69,7 @@ public class ParameterUtils {
             parameterString = PlaceholderUtils.replacePlaceholders(parameterString, parameterMap, true);
         }
         if (parameterMap != null && null != parameterMap.get(PARAMETER_DATETIME)) {
-            //Get current time, schedule execute time
+            // Get current time, schedule execute time
             String cronTimeStr = parameterMap.get(PARAMETER_DATETIME);
             cronTime = DateUtils.parse(cronTimeStr, PARAMETER_FORMAT_TIME);
         } else {
@@ -98,7 +94,7 @@ public class ParameterUtils {
         if (StringUtils.isEmpty(parameterString)) {
             return parameterString;
         }
-        //Get current time, schedule execute time
+        // Get current time, schedule execute time
         String cronTimeStr = parameterMap.get(PARAMETER_SHECDULE_TIME);
         Date cronTime = null;
 
@@ -130,7 +126,8 @@ public class ParameterUtils {
      * @param value    value
      * @throws Exception errors
      */
-    public static void setInParameter(int index, PreparedStatement stmt, DataType dataType, String value) throws Exception {
+    public static void setInParameter(int index, PreparedStatement stmt, DataType dataType,
+                                      String value) throws Exception {
         if (dataType.equals(DataType.VARCHAR)) {
             stmt.setString(index, value);
         } else if (dataType.equals(DataType.INTEGER)) {
@@ -152,56 +149,62 @@ public class ParameterUtils {
         }
     }
 
-    /**
-     * curing user define parameters
-     *
-     * @param globalParamMap  global param map
-     * @param globalParamList global param list
-     * @param commandType     command type
-     * @param scheduleTime    schedule time
-     * @return curing user define parameters
-     */
-    public static String curingGlobalParams(Map<String, String> globalParamMap, List<Property> globalParamList,
-                                            CommandType commandType, Date scheduleTime) {
-
-        if (globalParamList == null || globalParamList.isEmpty()) {
-            return null;
+    public static String expandListParameter(Map<Integer, Property> params, String sql) {
+        Map<Integer, Property> expandMap = new HashMap<>();
+        if (params == null || params.isEmpty()) {
+            return sql;
         }
-
-        Map<String, String> globalMap = new HashMap<>();
-        if (globalParamMap != null) {
-            globalMap.putAll(globalParamMap);
+        String[] split = sql.split("\\?");
+        if (split.length == 0) {
+            return sql;
         }
-        Map<String, String> allParamMap = new HashMap<>();
-        //If it is a complement, a complement time needs to be passed in, according to the task type
-        Map<String, String> timeParams = BusinessTimeUtils
-            .getBusinessTime(commandType, scheduleTime);
-
-        if (timeParams != null) {
-            allParamMap.putAll(timeParams);
-        }
-
-        allParamMap.putAll(globalMap);
-
-        Set<Map.Entry<String, String>> entries = allParamMap.entrySet();
-
-        Map<String, String> resolveMap = new HashMap<>();
-        for (Map.Entry<String, String> entry : entries) {
-            String val = entry.getValue();
-            if (val.startsWith("$")) {
-                String str = ParameterUtils.convertParameterPlaceholders(val, allParamMap);
-                resolveMap.put(entry.getKey(), str);
+        StringBuilder ret = new StringBuilder(split[0]);
+        int index = 1;
+        for (int i = 1; i < split.length; i++) {
+            Property property = params.get(i);
+            String value = property.getValue();
+            if (DataType.LIST.equals(property.getType())) {
+                List<Object> valueList = JSONUtils.toList(value, Object.class);
+                if (valueList.isEmpty() && StringUtils.isNotBlank(value)) {
+                    valueList.add(value);
+                }
+                for (int j = 0; j < valueList.size(); j++) {
+                    ret.append(PARAM_REPLACE_CHAR);
+                    if (j != valueList.size() - 1) {
+                        ret.append(",");
+                    }
+                }
+                for (Object v : valueList) {
+                    Property newProperty = new Property();
+                    if (v instanceof Integer) {
+                        newProperty.setType(DataType.INTEGER);
+                    } else if (v instanceof Long) {
+                        newProperty.setType(DataType.LONG);
+                    } else if (v instanceof Float) {
+                        newProperty.setType(DataType.FLOAT);
+                    } else if (v instanceof Double) {
+                        newProperty.setType(DataType.DOUBLE);
+                    } else {
+                        newProperty.setType(DataType.VARCHAR);
+                    }
+                    newProperty.setValue(v.toString());
+                    newProperty.setProp(property.getProp());
+                    newProperty.setDirect(property.getDirect());
+                    expandMap.put(index++, newProperty);
+                }
+            } else {
+                ret.append(PARAM_REPLACE_CHAR);
+                expandMap.put(index++, property);
             }
+            ret.append(split[i]);
         }
-        globalMap.putAll(resolveMap);
-
-        for (Property property : globalParamList) {
-            String val = globalMap.get(property.getProp());
-            if (val != null) {
-                property.setValue(val);
-            }
+        if (PARAM_REPLACE_CHAR == sql.charAt(sql.length() - 1)) {
+            ret.append(PARAM_REPLACE_CHAR);
+            expandMap.put(index, params.get(split.length));
         }
-        return JSONUtils.toJsonString(globalParamList);
+        params.clear();
+        params.putAll(expandMap);
+        return ret.toString();
     }
 
     /**
@@ -209,7 +212,7 @@ public class ParameterUtils {
      */
     public static String replaceScheduleTime(String text, Date scheduleTime) {
         Map<String, Property> paramsMap = new HashMap<>();
-        //if getScheduleTime null ,is current date
+        // if getScheduleTime null ,is current date
         if (null == scheduleTime) {
             scheduleTime = new Date();
         }
@@ -245,15 +248,14 @@ public class ParameterUtils {
         if (templateStr == null) {
             return null;
         }
-        Pattern pattern = Pattern.compile(DATE_PARSE_PATTERN);
 
         StringBuffer newValue = new StringBuffer(templateStr.length());
 
-        Matcher matcher = pattern.matcher(templateStr);
+        Matcher matcher = DATE_PARSE_PATTERN.matcher(templateStr);
 
         while (matcher.find()) {
             String key = matcher.group(1);
-            if (Pattern.matches(DATE_START_PATTERN, key)) {
+            if (DATE_START_PATTERN.matcher(key).matches()) {
                 continue;
             }
             String value = TimePlaceholderUtils.getPlaceHolderTime(key, date);

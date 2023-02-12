@@ -17,9 +17,10 @@
 
 package org.apache.dolphinscheduler.plugin.task.api.utils;
 
+import org.apache.dolphinscheduler.common.utils.PropertyUtils;
 import org.apache.dolphinscheduler.plugin.task.api.ShellExecutor;
-import org.apache.dolphinscheduler.spi.utils.PropertyUtils;
-import org.apache.dolphinscheduler.spi.utils.StringUtils;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.StringTokenizer;
@@ -48,24 +49,6 @@ public class OSUtils {
      */
     public static boolean isSudoEnable() {
         return PropertyUtils.getBoolean("sudo.enable", Boolean.TRUE);
-    }
-
-    /**
-     * whether is macOS
-     *
-     * @return true if mac
-     */
-    public static boolean isMacOS() {
-        return getOSName().startsWith("Mac");
-    }
-
-    /**
-     * whether is windows
-     *
-     * @return true if windows
-     */
-    public static boolean isWindows() {
-        return getOSName().startsWith("Windows");
     }
 
     /**

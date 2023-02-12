@@ -20,8 +20,8 @@ package org.apache.dolphinscheduler.data.quality.configuration;
 import org.apache.dolphinscheduler.data.quality.config.DataQualityConfiguration;
 import org.apache.dolphinscheduler.data.quality.utils.JsonUtils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * ConfigurationParserTest
@@ -30,7 +30,7 @@ public class ConfigurationParserTest {
 
     @Test
     public void testConfigurationValidate() {
-        Assert.assertEquals(1,verifyConfigurationValidate());
+        Assertions.assertEquals(1, verifyConfigurationValidate());
     }
 
     private int verifyConfigurationValidate() {
@@ -38,7 +38,7 @@ public class ConfigurationParserTest {
         try {
             String parameterStr = "{\"name\":\"data quality test\",\"env\":{\"type\":\"batch\",\"config\":null},"
                     + "\"readers\":[{\"type\":\"JDBC\",\"config\":{\"database\":\"test\",\"password\":\"Test@123!\","
-                    + "\"driver\":\"com.mysql.jdbc.Driver\",\"user\":\"test\",\"output_table\":\"test1\",\"table\":\"test1\","
+                    + "\"driver\":\"com.mysql.cj.jdbc.Driver\",\"user\":\"test\",\"output_table\":\"test1\",\"table\":\"test1\","
                     + "\"url\":\"jdbc:mysql://172.16.100.199:3306/test\"} }],\"transformers\":[{\"type\":\"sql\",\"config\":"
                     + "{\"index\":1,\"output_table\":\"miss_count\",\"sql\":\"SELECT COUNT(*) AS miss FROM test1 WHERE (c1 is null or c1 = '') \"} },"
                     + "{\"type\":\"sql\",\"config\":{\"index\":2,\"output_table\":\"total_count\",\"sql\":\"SELECT COUNT(*) AS total FROM test1 \"} }],"
@@ -50,7 +50,8 @@ public class ConfigurationParserTest {
                     + " threshold, 3 as operator, 0 as failure_strategy, '2021-06-29 10:18:59' as create_time,'2021-06-29 10:18:59' as update_time "
                     + "from miss_count FULL JOIN total_count\"} }]}";
 
-            DataQualityConfiguration dataQualityConfiguration = JsonUtils.fromJson(parameterStr,DataQualityConfiguration.class);
+            DataQualityConfiguration dataQualityConfiguration =
+                    JsonUtils.fromJson(parameterStr, DataQualityConfiguration.class);
             dataQualityConfiguration.validate();
         } catch (Exception e) {
             flag = 0;

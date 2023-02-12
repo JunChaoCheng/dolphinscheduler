@@ -271,7 +271,8 @@ DROP TABLE IF EXISTS t_ds_alert CASCADE;
 CREATE TABLE t_ds_alert
 (
     id            int(11) NOT NULL AUTO_INCREMENT,
-    title         varchar(64) DEFAULT NULL,
+    title         varchar(512) DEFAULT NULL,
+    sign           char(40) NOT NULL DEFAULT '',
     content       text,
     alert_status  tinyint(4) DEFAULT '0',
     warning_type  tinyint(4) DEFAULT '2',
@@ -279,7 +280,12 @@ CREATE TABLE t_ds_alert
     alertgroup_id int(11) DEFAULT NULL,
     create_time   datetime    DEFAULT NULL,
     update_time   datetime    DEFAULT NULL,
-    PRIMARY KEY (id)
+    project_code        bigint(20) DEFAULT NULL,
+    process_definition_code        bigint(20) DEFAULT NULL,
+    process_instance_id     int(11) DEFAULT NULL,
+    alert_type     int(11) DEFAULT NULL,
+    PRIMARY KEY (id),
+    KEY            idx_sign (sign)
 );
 
 -- ----------------------------
@@ -325,12 +331,13 @@ CREATE TABLE t_ds_command
     start_time                 datetime DEFAULT NULL,
     executor_id                int(11) DEFAULT NULL,
     update_time                datetime DEFAULT NULL,
-    process_instance_priority  int(11) DEFAULT NULL,
+    process_instance_priority  int(11) DEFAULT '2',
     worker_group               varchar(64),
     environment_code           bigint(20) DEFAULT '-1',
     dry_run                    int NULL DEFAULT 0,
     process_instance_id        int(11) DEFAULT 0,
     process_definition_version int(11) DEFAULT 0,
+    test_flag                  int NULL DEFAULT 0,
     PRIMARY KEY (id),
     KEY                        priority_id_index (process_instance_priority, id)
 );
@@ -353,6 +360,8 @@ CREATE TABLE t_ds_datasource
     connection_params text        NOT NULL,
     create_time       datetime    NOT NULL,
     update_time       datetime     DEFAULT NULL,
+    test_flag           int DEFAULT NULL,
+    bind_test_id        int DEFAULT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY t_ds_datasource_name_un (name, type)
 );
@@ -379,13 +388,14 @@ CREATE TABLE t_ds_error_command
     schedule_time              datetime DEFAULT NULL,
     start_time                 datetime DEFAULT NULL,
     update_time                datetime DEFAULT NULL,
-    process_instance_priority  int(11) DEFAULT NULL,
+    process_instance_priority  int(11) DEFAULT '2',
     worker_group               varchar(64),
     environment_code           bigint(20) DEFAULT '-1',
     message                    text,
     dry_run                    int NULL DEFAULT 0,
     process_instance_id        int(11) DEFAULT 0,
     process_definition_version int(11) DEFAULT 0,
+    test_flag                  int NULL DEFAULT 0,
     PRIMARY KEY (id)
 );
 
@@ -450,7 +460,8 @@ CREATE TABLE t_ds_process_definition_log
     operate_time     datetime     DEFAULT NULL,
     create_time      datetime NOT NULL,
     update_time      datetime     DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_idx_code_version (code, version) USING BTREE
 );
 
 -- ----------------------------
@@ -467,9 +478,11 @@ CREATE TABLE t_ds_task_definition
     project_code            bigint(20) NOT NULL,
     user_id                 int(11) DEFAULT NULL,
     task_type               varchar(50) NOT NULL,
+    task_execute_type       int(11) DEFAULT '0',
     task_params             longtext,
     flag                    tinyint(2) DEFAULT NULL,
-    task_priority           tinyint(4) DEFAULT NULL,
+    is_cache                tinyint(2) DEFAULT '0',
+    task_priority           tinyint(4) DEFAULT '2',
     worker_group            varchar(200) DEFAULT NULL,
     environment_code        bigint(20) DEFAULT '-1',
     fail_retry_times        int(11) DEFAULT NULL,
@@ -480,6 +493,8 @@ CREATE TABLE t_ds_task_definition
     delay_time              int(11) DEFAULT '0',
     task_group_id           int(11) DEFAULT NULL,
     task_group_priority     tinyint(4) DEFAULT '0',
+    cpu_quota               int(11) DEFAULT '-1' NOT NULL,
+    memory_max              int(11) DEFAULT '-1' NOT NULL,
     resource_ids            text,
     create_time             datetime    NOT NULL,
     update_time             datetime     DEFAULT NULL,
@@ -500,9 +515,11 @@ CREATE TABLE t_ds_task_definition_log
     project_code            bigint(20) NOT NULL,
     user_id                 int(11) DEFAULT NULL,
     task_type               varchar(50) NOT NULL,
+    task_execute_type       int(11) DEFAULT '0',
     task_params             text,
     flag                    tinyint(2) DEFAULT NULL,
-    task_priority           tinyint(4) DEFAULT NULL,
+    is_cache                tinyint(2) DEFAULT '0',
+    task_priority           tinyint(4) DEFAULT '2',
     worker_group            varchar(200) DEFAULT NULL,
     environment_code        bigint(20) DEFAULT '-1',
     fail_retry_times        int(11) DEFAULT NULL,
@@ -515,6 +532,8 @@ CREATE TABLE t_ds_task_definition_log
     operator                int(11) DEFAULT NULL,
     task_group_id           int(11) DEFAULT NULL,
     task_group_priority     tinyint(4) DEFAULT '0',
+    cpu_quota               int(11) DEFAULT '-1' NOT NULL,
+    memory_max              int(11) DEFAULT '-1' NOT NULL,
     operate_time            datetime     DEFAULT NULL,
     create_time             datetime    NOT NULL,
     update_time             datetime     DEFAULT NULL,
@@ -577,7 +596,9 @@ CREATE TABLE t_ds_process_instance
     name                       varchar(255) DEFAULT NULL,
     process_definition_version int(11) DEFAULT NULL,
     process_definition_code    bigint(20) not NULL,
+    project_code               bigint(20) DEFAULT NULL,
     state                      tinyint(4) DEFAULT NULL,
+    state_history              text,
     recovery                   tinyint(4) DEFAULT NULL,
     start_time                 datetime     DEFAULT NULL,
     end_time                   datetime     DEFAULT NULL,
@@ -597,16 +618,19 @@ CREATE TABLE t_ds_process_instance
     update_time                timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_sub_process             int(11) DEFAULT '0',
     executor_id                int(11) NOT NULL,
+    executor_name              varchar(64) DEFAULT NULL,
     history_cmd                text,
-    process_instance_priority  int(11) DEFAULT NULL,
+    process_instance_priority  int(11) DEFAULT '2',
     worker_group               varchar(64)  DEFAULT NULL,
     environment_code           bigint(20) DEFAULT '-1',
     timeout                    int(11) DEFAULT '0',
     next_process_instance_id   int(11) DEFAULT '0',
     tenant_id                  int(11) NOT NULL DEFAULT '-1',
+    tenant_code                varchar(64) DEFAULT NULL,
     var_pool                   longtext,
     dry_run                    int NULL DEFAULT 0,
     restart_time               datetime     DEFAULT NULL,
+    test_flag                  int NULL DEFAULT 0,
     PRIMARY KEY (id)
 );
 
@@ -623,12 +647,14 @@ CREATE TABLE t_ds_project
     id          int(11) NOT NULL AUTO_INCREMENT,
     name        varchar(100) DEFAULT NULL,
     code        bigint(20) NOT NULL,
-    description varchar(200) DEFAULT NULL,
+    description varchar(255) DEFAULT NULL,
     user_id     int(11) DEFAULT NULL,
     flag        tinyint(4) DEFAULT '1',
     create_time datetime NOT NULL,
     update_time datetime     DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_name (name),
+    UNIQUE KEY unique_code (code)
 );
 
 -- ----------------------------
@@ -646,7 +672,8 @@ CREATE TABLE t_ds_queue
     queue       varchar(64) DEFAULT NULL,
     create_time datetime    DEFAULT NULL,
     update_time datetime    DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_queue_name (queue_name)
 );
 
 -- ----------------------------
@@ -703,7 +730,8 @@ CREATE TABLE t_ds_relation_project_user
     perm        int(11) DEFAULT '1',
     create_time datetime DEFAULT NULL,
     update_time datetime DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_uid_pid(user_id,project_id)
 );
 
 -- ----------------------------
@@ -771,6 +799,24 @@ CREATE TABLE t_ds_resources
 -- ----------------------------
 
 -- ----------------------------
+-- Table structure for t_ds_relation_resources_task
+-- ----------------------------
+DROP TABLE IF EXISTS t_ds_relation_resources_task CASCADE;
+CREATE TABLE t_ds_relation_resources_task
+(
+  id                        int(11) NOT NULL AUTO_INCREMENT,
+  task_id                   int(11) DEFAULT NULL,
+  full_name                 varchar(255) DEFAULT NULL,
+  type                      tinyint(4) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY t_ds_relation_resources_task_un (task_id, full_name)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of t_ds_relation_resources_task
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for t_ds_schedules
 -- ----------------------------
 DROP TABLE IF EXISTS t_ds_schedules CASCADE;
@@ -787,7 +833,7 @@ CREATE TABLE t_ds_schedules
     release_state             tinyint(4) NOT NULL,
     warning_type              tinyint(4) NOT NULL,
     warning_group_id          int(11) DEFAULT NULL,
-    process_instance_priority int(11) DEFAULT NULL,
+    process_instance_priority int(11) DEFAULT '2',
     worker_group              varchar(64) DEFAULT '',
     environment_code          bigint(20) DEFAULT '-1',
     create_time               datetime     NOT NULL,
@@ -825,22 +871,27 @@ CREATE TABLE t_ds_task_instance
     id                      int(11) NOT NULL AUTO_INCREMENT,
     name                    varchar(255) DEFAULT NULL,
     task_type               varchar(50) NOT NULL,
+    task_execute_type       int(11) DEFAULT '0',
     task_code               bigint(20) NOT NULL,
     task_definition_version int(11) DEFAULT NULL,
     process_instance_id     int(11) DEFAULT NULL,
+    process_instance_name   varchar(255) DEFAULT NULL,
+    project_code            bigint(20) DEFAULT NULL,
     state                   tinyint(4) DEFAULT NULL,
     submit_time             datetime     DEFAULT NULL,
     start_time              datetime     DEFAULT NULL,
     end_time                datetime     DEFAULT NULL,
     host                    varchar(135) DEFAULT NULL,
     execute_path            varchar(200) DEFAULT NULL,
-    log_path                varchar(200) DEFAULT NULL,
+    log_path                longtext DEFAULT NULL,
     alert_flag              tinyint(4) DEFAULT NULL,
     retry_times             int(4) DEFAULT '0',
     pid                     int(4) DEFAULT NULL,
     app_link                text,
     task_params             longtext,
     flag                    tinyint(4) DEFAULT '1',
+    is_cache                tinyint(2) DEFAULT '0',
+    cache_key               varchar(200) DEFAULT NULL,
     retry_interval          int(4) DEFAULT NULL,
     max_retry_times         int(2) DEFAULT NULL,
     task_instance_priority  int(11) DEFAULT NULL,
@@ -848,13 +899,16 @@ CREATE TABLE t_ds_task_instance
     environment_code        bigint(20) DEFAULT '-1',
     environment_config      text         DEFAULT '',
     executor_id             int(11) DEFAULT NULL,
+    executor_name           varchar(64) DEFAULT NULL,
     first_submit_time       datetime     DEFAULT NULL,
     delay_time              int(4) DEFAULT '0',
     task_group_id           int(11) DEFAULT NULL,
     var_pool                longtext,
     dry_run                 int NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    FOREIGN KEY (process_instance_id) REFERENCES t_ds_process_instance (id) ON DELETE CASCADE
+    cpu_quota               int(11) DEFAULT '-1' NOT NULL,
+    memory_max              int(11) DEFAULT '-1' NOT NULL,
+    test_flag               int NULL DEFAULT 0,
+    PRIMARY KEY (id)
 );
 
 -- ----------------------------
@@ -873,7 +927,8 @@ CREATE TABLE t_ds_tenant
     queue_id    int(11)      DEFAULT NULL,
     create_time datetime     DEFAULT NULL,
     update_time datetime     DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_code (tenant_code)
 );
 
 -- ----------------------------
@@ -898,7 +953,8 @@ CREATE TABLE t_ds_udfs
     resource_name varchar(255) NOT NULL,
     create_time   datetime     NOT NULL,
     update_time   datetime     NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_func_name (func_name)
 );
 
 -- ----------------------------
@@ -942,6 +998,8 @@ CREATE TABLE t_ds_worker_group
     addr_list   text NULL DEFAULT NULL,
     create_time datetime NULL DEFAULT NULL,
     update_time datetime NULL DEFAULT NULL,
+    description text NULL DEFAULT NULL,
+    other_params_json text NULL DEFAULT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY name_unique (name)
 );
@@ -973,7 +1031,7 @@ VALUES ('1', '1.4.0');
 -- Records of t_ds_alertgroup
 -- ----------------------------
 INSERT INTO t_ds_alertgroup(alert_instance_ids, create_user_id, group_name, description, create_time, update_time)
-VALUES ('1,2', 1, 'default admin warning group', 'default admin warning group', '2018-11-29 10:20:39',
+VALUES (NULL, 1, 'default admin warning group', 'default admin warning group', '2018-11-29 10:20:39',
         '2018-11-29 10:20:39');
 
 -- ----------------------------
@@ -1848,7 +1906,7 @@ CREATE TABLE t_ds_task_group
 (
    id          int(11)  NOT NULL AUTO_INCREMENT ,
    name        varchar(100) DEFAULT NULL ,
-   description varchar(200) DEFAULT NULL ,
+   description varchar(255) DEFAULT NULL ,
    group_size  int(11) NOT NULL ,
    project_code  bigint(20) DEFAULT '0',
    use_size    int(11) DEFAULT '0' ,
@@ -1889,24 +1947,114 @@ CREATE TABLE t_ds_k8s
 DROP TABLE IF EXISTS t_ds_k8s_namespace;
 CREATE TABLE t_ds_k8s_namespace (
     id                 int(11) NOT NULL AUTO_INCREMENT ,
+    code               bigint(20) NOT NULL,
     limits_memory      int(11) DEFAULT NULL,
     namespace          varchar(100) DEFAULT NULL,
-    online_job_num     int(11) DEFAULT NULL,
-    owner              varchar(100) DEFAULT NULL,
+    user_id            int(11) DEFAULT NULL,
     pod_replicas       int(11) DEFAULT NULL,
     pod_request_cpu    decimal(14,3) DEFAULT NULL,
     pod_request_memory int(11) DEFAULT NULL,
-    tag                varchar(100) DEFAULT NULL,
     limits_cpu         decimal(14,3) DEFAULT NULL,
-    k8s                varchar(100) DEFAULT NULL,
+    cluster_code       bigint(20) NOT NULL,
     create_time        datetime DEFAULT NULL ,
     update_time        datetime DEFAULT NULL ,
     PRIMARY KEY (id) ,
-    UNIQUE KEY k8s_namespace_unique (namespace,k8s)
+    UNIQUE KEY k8s_namespace_unique (namespace,cluster_code)
 );
-
 -- ----------------------------
 -- Records of t_ds_k8s_namespace
 -- ----------------------------
-INSERT INTO t_ds_k8s_namespace
-VALUES (1, 10000, 'default', 99, 'owner',1,NULL,1,'test',NULL,'default',null,null);
+INSERT INTO `t_ds_k8s_namespace`
+(`id`,`code`,`limits_memory`,`namespace`,`user_id`,`pod_replicas`,`pod_request_cpu`,`pod_request_memory`,`limits_cpu`,`cluster_code`,`create_time`,`update_time`)
+VALUES (1, 990001, 1000, 'flink_test', 1, 1, 0.1, 1, 100, 0, '2022-03-03 11:31:24.0', '2022-03-03 11:31:24.0');
+
+INSERT INTO `t_ds_k8s_namespace`
+(`id`,`code`,`limits_memory`,`namespace`,`user_id`,`pod_replicas`,`pod_request_cpu`,`pod_request_memory`,`limits_cpu`,`cluster_code`,`create_time`,`update_time`)
+VALUES (2, 990002, 500, 'spark_test', 2, 1, 10000, 1, 100, 0, '2021-03-03 11:31:24.0', '2021-03-03 11:31:24.0');
+
+INSERT INTO `t_ds_k8s_namespace`
+(`id`,`code`,`limits_memory`,`namespace`,`user_id`,`pod_replicas`,`pod_request_cpu`,`pod_request_memory`,`limits_cpu`,`cluster_code`,`create_time`,`update_time`)
+VALUES (3, 990003, 200, 'auth_test', 3, 1, 100, 1, 10000, 0, '2020-03-03 11:31:24.0', '2020-03-03 11:31:24.0');
+
+-- ----------------------------
+-- Table structure for t_ds_relation_namespace_user
+-- ----------------------------
+DROP TABLE IF EXISTS t_ds_relation_namespace_user;
+CREATE TABLE t_ds_relation_namespace_user (
+    id                int(11) NOT NULL AUTO_INCREMENT ,
+    user_id           int(11) NOT NULL ,
+    namespace_id      int(11) NOT NULL ,
+    perm              int(11) DEFAULT '1' ,
+    create_time       datetime DEFAULT NULL ,
+    update_time       datetime DEFAULT NULL ,
+    PRIMARY KEY (id) ,
+    UNIQUE KEY namespace_user_unique (user_id,namespace_id)
+);
+
+-- ----------------------------
+-- Table structure for t_ds_alert_send_status
+-- ----------------------------
+DROP TABLE IF EXISTS t_ds_alert_send_status CASCADE;
+CREATE TABLE t_ds_alert_send_status
+(
+    id                            int NOT NULL AUTO_INCREMENT,
+    alert_id                      int NOT NULL,
+    alert_plugin_instance_id      int NOT NULL,
+    send_status                   tinyint(4) DEFAULT '0',
+    log                           text,
+    create_time                   timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY alert_send_status_unique (alert_id,alert_plugin_instance_id)
+);
+
+
+--
+-- Table structure for table t_ds_cluster
+--
+DROP TABLE IF EXISTS t_ds_cluster CASCADE;
+CREATE TABLE t_ds_cluster
+(
+    id          int       NOT NULL AUTO_INCREMENT,
+    code        bigint(20) NOT NULL,
+    name        varchar(100)       DEFAULT NULL,
+    config      text               DEFAULT NULL,
+    description text,
+    operator    int                DEFAULT NULL,
+    create_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY cluster_name_unique (name),
+    UNIQUE KEY cluster_code_unique (code)
+);
+
+INSERT INTO `t_ds_cluster`
+(`id`, `code`, `name`, `config`, `description`, `operator`, `create_time`, `update_time`)
+VALUES (100, 0, 'ds_null_k8s', '{"k8s":"ds_null_k8s"}', 'test', 1, '2021-03-03 11:31:24.0', '2021-03-03 11:31:24.0');
+
+--
+-- Table structure for t_ds_fav_task
+--
+DROP TABLE IF EXISTS t_ds_fav_task CASCADE;
+CREATE TABLE t_ds_fav_task
+(
+    id        bigint(20) NOT NULL AUTO_INCREMENT,
+    task_type varchar(64) NOT NULL,
+    user_id   int         NOT NULL,
+    PRIMARY KEY (id)
+);
+
+--
+-- Table structure for t_ds_trigger_relation
+--
+DROP TABLE IF EXISTS `t_ds_trigger_relation`;
+CREATE TABLE t_ds_trigger_relation
+(
+    id              bigint(20) NOT NULL AUTO_INCREMENT,
+    trigger_type    int         NOT NULL,
+    job_id          int         NOT NULL,
+    trigger_code    bigint(20)  NOT NULL,
+    create_time     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY t_ds_trigger_relation_UN(trigger_type,job_id,trigger_code)
+);

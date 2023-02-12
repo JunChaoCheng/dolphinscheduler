@@ -17,20 +17,21 @@
 
 package org.apache.dolphinscheduler.plugin.task.api.parameters;
 
+import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.plugin.task.api.enums.Direct;
 import org.apache.dolphinscheduler.plugin.task.api.model.Property;
 import org.apache.dolphinscheduler.plugin.task.api.model.ResourceInfo;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.ResourceParametersHelper;
-import org.apache.dolphinscheduler.spi.utils.JSONUtils;
-import org.apache.dolphinscheduler.spi.utils.StringUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -39,6 +40,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
  * job params related class
  */
 public abstract class AbstractParameters implements IParameters {
+
     @Override
     public abstract boolean checkParameters();
 
@@ -75,15 +77,30 @@ public abstract class AbstractParameters implements IParameters {
      * @return parameters map
      */
     public Map<String, Property> getLocalParametersMap() {
+        Map<String, Property> localParametersMaps = new LinkedHashMap<>();
         if (localParams != null) {
-            Map<String, Property> localParametersMaps = new LinkedHashMap<>();
-
             for (Property property : localParams) {
-                localParametersMaps.put(property.getProp(),property);
+                localParametersMaps.put(property.getProp(), property);
             }
-            return localParametersMaps;
         }
-        return null;
+        return localParametersMaps;
+    }
+
+    /**
+     * get input local parameters map if the param direct is IN
+     * @return parameters map
+     */
+    public Map<String, Property> getInputLocalParametersMap() {
+        Map<String, Property> localParametersMaps = new LinkedHashMap<>();
+        if (localParams != null) {
+            for (Property property : localParams) {
+                // The direct of some tasks is empty, default IN
+                if (property.getDirect() == null || Objects.equals(Direct.IN, property.getDirect())) {
+                    localParametersMaps.put(property.getProp(), property);
+                }
+            }
+        }
+        return localParametersMaps;
     }
 
     /**
@@ -92,14 +109,13 @@ public abstract class AbstractParameters implements IParameters {
      * @return parameters map
      */
     public Map<String, Property> getVarPoolMap() {
+        Map<String, Property> varPoolMap = new LinkedHashMap<>();
         if (varPool != null) {
-            Map<String, Property> varPoolMap = new LinkedHashMap<>();
             for (Property property : varPool) {
                 varPoolMap.put(property.getProp(), property);
             }
-            return varPoolMap;
         }
-        return null;
+        return varPoolMap;
     }
 
     public List<Property> getVarPool() {
@@ -107,7 +123,7 @@ public abstract class AbstractParameters implements IParameters {
     }
 
     public void setVarPool(String varPool) {
-        if (org.apache.dolphinscheduler.spi.utils.StringUtils.isEmpty(varPool)) {
+        if (StringUtils.isEmpty(varPool)) {
             this.varPool = new ArrayList<>();
         } else {
             this.varPool = JSONUtils.toList(varPool, Property.class);
@@ -115,15 +131,15 @@ public abstract class AbstractParameters implements IParameters {
     }
 
     public void dealOutParam(String result) {
-        if (org.apache.commons.collections4.CollectionUtils.isEmpty(localParams)) {
+        if (CollectionUtils.isEmpty(localParams)) {
             return;
         }
         List<Property> outProperty = getOutProperty(localParams);
-        if (org.apache.commons.collections4.CollectionUtils.isEmpty(outProperty)) {
+        if (CollectionUtils.isEmpty(outProperty)) {
             return;
         }
-        if (org.apache.dolphinscheduler.spi.utils.StringUtils.isEmpty(result)) {
-            varPool.addAll(outProperty);
+        if (StringUtils.isEmpty(result)) {
+            outProperty.forEach(this::addPropertyToValPool);
             return;
         }
         Map<String, String> taskResult = getMapByString(result);
@@ -132,9 +148,9 @@ public abstract class AbstractParameters implements IParameters {
         }
         for (Property info : outProperty) {
             String propValue = taskResult.get(info.getProp());
-            if (org.apache.dolphinscheduler.spi.utils.StringUtils.isNotEmpty(propValue)) {
+            if (StringUtils.isNotEmpty(propValue)) {
                 info.setValue(propValue);
-                varPool.add(info);
+                addPropertyToValPool(info);
             }
         }
     }
@@ -181,5 +197,10 @@ public abstract class AbstractParameters implements IParameters {
 
     public ResourceParametersHelper getResources() {
         return new ResourceParametersHelper();
+    }
+
+    public void addPropertyToValPool(Property property) {
+        varPool.removeIf(p -> p.getProp().equals(property.getProp()));
+        varPool.add(property);
     }
 }

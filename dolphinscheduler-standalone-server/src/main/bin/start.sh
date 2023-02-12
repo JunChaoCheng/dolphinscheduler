@@ -19,7 +19,8 @@
 BIN_DIR=$(dirname $0)
 DOLPHINSCHEDULER_HOME=${DOLPHINSCHEDULER_HOME:-$(cd $BIN_DIR/..; pwd)}
 
-source "$BIN_DIR/dolphinscheduler_env.sh"
+export DATABASE=${DATABASE:-h2}
+source "$DOLPHINSCHEDULER_HOME/conf/dolphinscheduler_env.sh"
 
 JAVA_OPTS=${JAVA_OPTS:-"-server -Duser.timezone=${SPRING_JACKSON_TIME_ZONE} -Xms1g -Xmx1g -Xmn512m -XX:+PrintGCDetails -Xloggc:gc.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=dump.hprof"}
 
@@ -34,6 +35,6 @@ for d in $DOLPHINSCHEDULER_HOME/libs/*; do
   done
 done
 
-java $JAVA_OPTS \
+$JAVA_HOME/bin/java $JAVA_OPTS \
   -cp "$DOLPHINSCHEDULER_HOME/conf":"$CP" \
   org.apache.dolphinscheduler.StandaloneServer
