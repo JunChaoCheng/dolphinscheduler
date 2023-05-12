@@ -51,7 +51,7 @@ import org.springframework.stereotype.Service;
  * netty executor manager
  */
 @Service
-public class NettyExecutorManager extends AbstractExecutorManager<Boolean> {
+public class NettyExecutorManager  extends AbstractExecutorManager<Boolean> {
 
     private final Logger logger = LoggerFactory.getLogger(NettyExecutorManager.class);
 

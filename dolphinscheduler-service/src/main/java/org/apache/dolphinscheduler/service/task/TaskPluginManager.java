@@ -49,6 +49,7 @@ public class TaskPluginManager {
             logger.warn("The task plugin has already been loaded");
             return;
         }
+        //spi方式把所有TaskChannelFactory、TaskChannel放到map中缓存起来
         PrioritySPIFactory<TaskChannelFactory> prioritySPIFactory = new PrioritySPIFactory<>(TaskChannelFactory.class);
         for (Map.Entry<String, TaskChannelFactory> entry : prioritySPIFactory.getSPIMap().entrySet()) {
             String factoryName = entry.getKey();

@@ -2773,6 +2773,16 @@ public class ProcessServiceImpl implements ProcessService {
     @Override
     public List<TaskNode> transformTask(List<ProcessTaskRelation> taskRelationList,
                                         List<TaskDefinitionLog> taskDefinitionLogs) {
+        //taskRelationList
+        //0-1
+        //1-2
+        //2-3
+        //4-5
+        //4-6
+        //3-6
+        //2-4
+        //taskDefinitionLogs 1、2、3、4、5、6
+        //taskCodeMap {{2: 1},{3: 2},{4: 2},{5: 4},{6: 3,4}}
         Map<Long, List<Long>> taskCodeMap = new HashMap<>();
         for (ProcessTaskRelation processTaskRelation : taskRelationList) {
             taskCodeMap.compute(processTaskRelation.getPostTaskCode(), (k, v) -> {
@@ -2785,12 +2795,15 @@ public class ProcessServiceImpl implements ProcessService {
                 return v;
             });
         }
+        //taskDefinitionLogs如果为空 再根据taskRelationList生成一个
         if (CollectionUtils.isEmpty(taskDefinitionLogs)) {
             taskDefinitionLogs = genTaskDefineList(taskRelationList);
         }
+        //taskDefinitionLogs转成map<taskCode,TaskDefinitionLog>
         Map<Long, TaskDefinitionLog> taskDefinitionLogMap = taskDefinitionLogs.stream()
                 .collect(Collectors.toMap(TaskDefinitionLog::getCode, taskDefinitionLog -> taskDefinitionLog));
         List<TaskNode> taskNodeList = new ArrayList<>();
+        //遍历taskCodeMap转成dag依赖的tasknodeList
         for (Entry<Long, List<Long>> code : taskCodeMap.entrySet()) {
             TaskDefinitionLog taskDefinitionLog = taskDefinitionLogMap.get(code.getKey());
             if (taskDefinitionLog != null) {

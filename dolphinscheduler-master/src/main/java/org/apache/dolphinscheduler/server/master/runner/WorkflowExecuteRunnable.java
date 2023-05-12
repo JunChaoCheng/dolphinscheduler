@@ -765,19 +765,26 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
      * @throws Exception exception
      */
     private void buildFlowDag() throws Exception {
+        //数据库查询对应processInstance
         processDefinition = processService.findProcessDefinition(processInstance.getProcessDefinitionCode(),
                 processInstance.getProcessDefinitionVersion());
         processInstance.setProcessDefinition(processDefinition);
 
+        //需要提前跑的前置任务
         List<TaskInstance> recoverNodeList = getRecoverTaskInstanceList(processInstance.getCommandParam());
 
+        //查找任务的前后关系
+        // TODO: 2023/5/12  ds目前只支持流程内依赖 有待修改
         List<ProcessTaskRelation> processTaskRelations =
                 processService.findRelationByCode(processDefinition.getCode(), processDefinition.getVersion());
+        //需要执行的所有任务
         List<TaskDefinitionLog> taskDefinitionLogs =
                 processService.getTaskDefineLogListByRelation(processTaskRelations);
+        //dag需要的参数taskNodeList
         List<TaskNode> taskNodeList = processService.transformTask(processTaskRelations, taskDefinitionLogs);
         forbiddenTaskMap.clear();
 
+        //不执行的task放到forbiddenTaskMap中
         taskNodeList.forEach(taskNode -> {
             if (taskNode.isForbidden()) {
                 forbiddenTaskMap.put(taskNode.getCode(), taskNode);
@@ -785,8 +792,12 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
         });
 
         // generate process to get DAG info
+        //前置任务code的list
         List<String> recoveryNodeCodeList = getRecoveryNodeCodeList(recoverNodeList);
         List<String> startNodeNameList = parseStartNodeName(processInstance.getCommandParam());
+
+        //这个地方是通用的
+        //可以自己封装taskNodeList就可以直接用ds的下面方法生成dag
         ProcessDag processDag = generateFlowDag(taskNodeList, startNodeNameList, recoveryNodeCodeList,
                 processInstance.getTaskDependType());
         if (processDag == null) {

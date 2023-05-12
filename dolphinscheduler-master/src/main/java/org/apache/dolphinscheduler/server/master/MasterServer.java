@@ -94,6 +94,7 @@ public class MasterServer implements IStoppable {
         this.masterRegistryClient.start();
         this.masterRegistryClient.setRegistryStoppable(this);
 
+        //初始化流程线程池和master地址
         this.masterSchedulerBootstrap.init();
         this.masterSchedulerBootstrap.start();
 

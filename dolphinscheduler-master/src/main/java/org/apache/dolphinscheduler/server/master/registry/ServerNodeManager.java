@@ -316,8 +316,11 @@ public class ServerNodeManager implements InitializingBean {
         String nodeLock = Constants.REGISTRY_DOLPHINSCHEDULER_LOCK_MASTERS;
         try {
             registryClient.getLock(nodeLock);
+            //获取当前存活的master地址
             Collection<String> currentNodes = registryClient.getMasterNodesDirectly();
+            //获取当前存活的master存的master所有信息
             List<Server> masterNodes = registryClient.getServerList(NodeType.MASTER);
+            //更新ServerNodeManager节点信息 包括slot和size materNode和队列信息
             syncMasterNodes(currentNodes, masterNodes);
         } catch (Exception e) {
             logger.error("update master nodes error", e);

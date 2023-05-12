@@ -126,10 +126,13 @@ public class MasterFailoverService {
      * @param masterHost master host
      */
     private void doFailoverMaster(@NonNull String masterHost) {
+        // StopWatch用来统计容错的时间
         StopWatch failoverTimeCost = StopWatch.createStarted();
 
+        //获取MasterServer启动时间
         Optional<Date> masterStartupTimeOptional = getServerStartupTime(registryClient.getServerList(NodeType.MASTER),
                 masterHost);
+        //获取所有需要容错的实例
         List<ProcessInstance> needFailoverProcessInstanceList = processService.queryNeedFailoverProcessInstances(
                 masterHost);
         if (CollectionUtils.isEmpty(needFailoverProcessInstanceList)) {
@@ -151,11 +154,13 @@ public class MasterFailoverService {
                     continue;
                 }
                 // todo: use batch query
+                //封装流程信息到实例对象中方便之后使用
                 ProcessDefinition processDefinition =
                         processService.findProcessDefinition(processInstance.getProcessDefinitionCode(),
                                 processInstance.getProcessDefinitionVersion());
                 processInstance.setProcessDefinition(processDefinition);
                 int processInstanceId = processInstance.getId();
+                //根据流程实例id查找对应的任务实例
                 List<TaskInstance> taskInstanceList = processService.findValidTaskListByProcessId(processInstanceId);
                 for (TaskInstance taskInstance : taskInstanceList) {
                     try {
@@ -165,17 +170,20 @@ public class MasterFailoverService {
                             LOGGER.info("The taskInstance doesn't need to failover");
                             continue;
                         }
+                        //开始容错任务实例
+                        //遍历所有需要容错的实例 1.先kill 2.再更改状态为需要容错
                         failoverTaskInstance(processInstance, taskInstance);
                         LOGGER.info("TaskInstance failover finished");
                     } finally {
                         LoggerUtils.removeTaskInstanceIdMDC();
                     }
                 }
-
+                //Metrc容错次数增加
                 ProcessInstanceMetrics.incProcessInstanceByState("failover");
                 // updateProcessInstance host is null to mark this processInstance has been failover
                 // and insert a failover command
                 processInstance.setHost(Constants.NULL);
+                //修改实例信息 host改为null
                 processService.processNeedFailoverProcessInstances(processInstance);
                 LOGGER.info("WorkflowInstance failover finished");
             } finally {
@@ -183,6 +191,7 @@ public class MasterFailoverService {
             }
         }
 
+        //容错结束 统计时长
         failoverTimeCost.stop();
         LOGGER.info("Master[{}] failover finished, useTime:{}ms",
                 masterHost,
@@ -221,6 +230,7 @@ public class MasterFailoverService {
 
         if (!isMasterTask) {
             LOGGER.info("The failover taskInstance is not master task");
+            //设置上下文对象
             TaskExecutionContext taskExecutionContext = TaskExecutionContextBuilder.get()
                     .buildTaskInstanceRelatedInfo(taskInstance)
                     .buildProcessInstanceRelatedInfo(processInstance)
@@ -239,7 +249,7 @@ public class MasterFailoverService {
         } else {
             LOGGER.info("The failover taskInstance is a master task");
         }
-
+        //设置实例状态为需要容错
         taskInstance.setState(TaskExecutionStatus.NEED_FAULT_TOLERANCE);
         taskInstance.setFlag(Flag.NO);
         processService.saveTaskInstance(taskInstance);

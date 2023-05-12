@@ -425,6 +425,8 @@ public class DagHelperTest {
         taskNodeList.add(node8);
 
         List<String> startNodes = new ArrayList<>();
+        startNodes.add("3");
+        startNodes.add("8");
         List<String> recoveryNodes = new ArrayList<>();
         List<TaskNode> destTaskNodeList = DagHelper.generateFlowNodeListByStartNode(taskNodeList,
                 startNodes, recoveryNodes, TaskDependType.TASK_POST);

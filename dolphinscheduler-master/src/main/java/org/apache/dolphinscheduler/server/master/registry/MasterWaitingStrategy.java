@@ -62,13 +62,16 @@ public class MasterWaitingStrategy implements MasterConnectStrategy {
     @Override
     public void disconnect() {
         try {
+            //修改nodemanager的状态为waiting
             ServerLifeCycleManager.toWaiting();
             // todo: clear the current resource
+            //停止rpcserver 清理工作流、task缓存
             clearMasterResource();
             Duration maxWaitingTime = masterConfig.getRegistryDisconnectStrategy().getMaxWaitingTime();
             try {
                 logger.info("Master disconnect from registry will try to reconnect in {} s",
                         maxWaitingTime.getSeconds());
+                //重新连接注册中心
                 registryClient.connectUntilTimeout(maxWaitingTime);
             } catch (RegistryException ex) {
                 throw new ServerLifeCycleException(

@@ -92,7 +92,7 @@ public class DagHelper {
         List<String> startNodeList = startNodeNameList;
 
         if (taskDependType != TaskDependType.TASK_POST && CollectionUtils.isEmpty(startNodeList)) {
-            logger.error("start node list is empty! cannot continue run the process ");
+            logger.error("start node lisTaskDependTypet is empty! cannot continue run the process ");
             return destFlowNodeList;
         }
 

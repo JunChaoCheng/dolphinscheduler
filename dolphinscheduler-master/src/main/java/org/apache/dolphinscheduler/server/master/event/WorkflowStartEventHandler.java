@@ -52,6 +52,7 @@ public class WorkflowStartEventHandler implements WorkflowEventHandler {
     @Override
     public void handleWorkflowEvent(final WorkflowEvent workflowEvent) throws WorkflowEventHandleError {
         logger.info("Handle workflow start event, begin to start a workflow, event: {}", workflowEvent);
+        //从MasterSchedulerBootstrap.start()方法里面提前添加的processInstanceExecCacheManager里面获取对应的线程对象
         WorkflowExecuteRunnable workflowExecuteRunnable = processInstanceExecCacheManager.getByProcessInstanceId(
             workflowEvent.getWorkflowInstanceId());
         if (workflowExecuteRunnable == null) {
@@ -66,6 +67,8 @@ public class WorkflowStartEventHandler implements WorkflowEventHandler {
                     // submit failed will resend the event to workflow event queue
                     logger.info("Success submit the workflow instance");
                     if (processInstance.getTimeout() > 0) {
+                        //加入超时检查队列 超时队列为一个线程使用spring @PostConstruct注解自动启动 里面无限循环调用chektimeout方法
+                        //检查是否超时 如果超时 把对应的processinstanceCacheManager里面对应的workflowExecuteRunnable状态修改为超时
                         stateWheelExecuteThread.addProcess4TimeoutCheck(processInstance);
                     }
                 } else {

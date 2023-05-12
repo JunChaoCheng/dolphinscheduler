@@ -168,6 +168,7 @@ public class MasterSchedulerBootstrap extends BaseDaemonThread implements AutoCl
                             logger.error(
                                     "The workflow instance is already been cached, this case shouldn't be happened");
                         }
+                        //每个工作流对应一个线程
                         WorkflowExecuteRunnable workflowRunnable = new WorkflowExecuteRunnable(processInstance,
                                 processService,
                                 processInstanceDao,
@@ -176,7 +177,9 @@ public class MasterSchedulerBootstrap extends BaseDaemonThread implements AutoCl
                                 masterConfig,
                                 stateWheelExecuteThread,
                                 curingGlobalParamsService);
+                        //放入本地缓存 一个流程实例id对应一个工作流线程对象
                         processInstanceExecCacheManager.cache(processInstance.getId(), workflowRunnable);
+                        //放入队列中 只存流程实例的id 应该是为了节省内存
                         workflowEventQueue.addEvent(new WorkflowEvent(WorkflowEventType.START_WORKFLOW,
                                 processInstance.getId()));
                     } finally {

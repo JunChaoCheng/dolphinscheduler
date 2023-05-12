@@ -73,9 +73,11 @@ public class WorkflowEventLooper extends BaseDaemonThread {
         WorkflowEvent workflowEvent = null;
         while (!ServerLifeCycleManager.isStopped()) {
             try {
+                //WorkflowEvent队列 (流程实例id+类型 实际上就是个processInstanceId的队列)
                 workflowEvent = workflowEventQueue.poolEvent();
                 LoggerUtils.setWorkflowInstanceIdMDC(workflowEvent.getWorkflowInstanceId());
                 logger.info("Workflow event looper receive a workflow event: {}, will handle this", workflowEvent);
+                //工作流处理器 设计目的为了设配多种类型 目前只有启动处理器一种
                 WorkflowEventHandler workflowEventHandler =
                         workflowEventHandlerMap.get(workflowEvent.getWorkflowEventType());
                 workflowEventHandler.handleWorkflowEvent(workflowEvent);

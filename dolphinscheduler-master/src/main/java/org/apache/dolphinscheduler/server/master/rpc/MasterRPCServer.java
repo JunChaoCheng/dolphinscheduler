@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Master RPC Server, used to send/receive request to other system.
+ * 远程调用server 里面主要就一个NettyRemotingServer其余为一大堆处理器和MasterConfig
  */
 @Service
 public class MasterRPCServer implements AutoCloseable {
@@ -87,6 +88,7 @@ public class MasterRPCServer implements AutoCloseable {
         // init remoting server
         NettyServerConfig serverConfig = new NettyServerConfig();
         serverConfig.setListenPort(masterConfig.getListenPort());
+        //初始化nettyRemotingServer封装一大堆处理器
         this.nettyRemotingServer = new NettyRemotingServer(serverConfig);
         this.nettyRemotingServer.registerProcessor(CommandType.TASK_EXECUTE_RUNNING, taskExecuteRunningProcessor);
         this.nettyRemotingServer.registerProcessor(CommandType.TASK_EXECUTE_RESULT, taskExecuteResponseProcessor);
@@ -105,6 +107,7 @@ public class MasterRPCServer implements AutoCloseable {
         this.nettyRemotingServer.registerProcessor(CommandType.VIEW_WHOLE_LOG_REQUEST, loggerRequestProcessor);
         this.nettyRemotingServer.registerProcessor(CommandType.REMOVE_TAK_LOG_REQUEST, loggerRequestProcessor);
 
+        //开启remote服务端
         this.nettyRemotingServer.start();
         logger.info("Started Master RPC Server...");
     }

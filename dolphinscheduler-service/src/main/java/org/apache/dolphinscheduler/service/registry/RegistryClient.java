@@ -61,7 +61,7 @@ public class RegistryClient {
 
     private static final String EMPTY = "";
     private IStoppable stoppable;
-
+    //RegistryClient一个 通过Registry的不同实现类 实现多种注册中心
     private final Registry registry;
 
     public RegistryClient(Registry registry) {

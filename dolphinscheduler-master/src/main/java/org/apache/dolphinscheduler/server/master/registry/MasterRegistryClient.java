@@ -64,8 +64,11 @@ public class MasterRegistryClient implements AutoCloseable {
             this.masterHeartBeatTask = new MasterHeartBeatTask(masterConfig, registryClient);
             // master registry
             registry();
+            //监听连接状态 断开：调整ServerNodeManager状态 停止RpcServer 并且重新连接 重新连接：调整ServerLifeCycleManager状态并重启RpcServer
             registryClient.addConnectionStateListener(
                     new MasterConnectionStateListener(masterConfig, registryClient, masterConnectStrategy));
+            //监听master和worker目录信息 新加节点：日志打印出来 移除节点：容错(停止任务 修改任务状态为容错..)
+            //这里注意多个master都会同时进行容错 但是只有一个会成功 因为这里用了分布式锁
             registryClient.subscribe(REGISTRY_DOLPHINSCHEDULER_NODE, new MasterRegistryDataListener());
         } catch (Exception e) {
             throw new RegistryException("Master registry client start up error", e);
@@ -90,6 +93,8 @@ public class MasterRegistryClient implements AutoCloseable {
      * @param failover is failover
      */
     public void removeMasterNodePath(String path, NodeType nodeType, boolean failover) {
+        //这里方法名叫移除但是这里只做了任务的容错
+        //移除在各自的connectlistener里面就移除了
         logger.info("{} node deleted : {}", nodeType, path);
 
         if (StringUtils.isEmpty(path)) {
@@ -154,17 +159,22 @@ public class MasterRegistryClient implements AutoCloseable {
         String masterRegistryPath = masterConfig.getMasterRegistryPath();
 
         // remove before persist
+        //这里采用zk的临时注册(断开即删除目录信息)
         registryClient.remove(masterRegistryPath);
+        //持续短暂的注册
         registryClient.persistEphemeral(masterRegistryPath, JSONUtils.toJsonString(masterHeartBeatTask.getHeartBeat()));
 
+        //循环查询注册结果 不成功则一直查
         while (!registryClient.checkNodeExists(NetUtils.getHost(), NodeType.MASTER)) {
             logger.warn("The current master server node:{} cannot find in registry", NetUtils.getHost());
             ThreadUtils.sleep(SLEEP_TIME_MILLIS);
         }
 
         // sleep 1s, waiting master failover remove
+        //此处等待的目的 保证有问题的节点被彻底移除
         ThreadUtils.sleep(SLEEP_TIME_MILLIS);
 
+        //注册到注册中心 打印注册成功日志
         masterHeartBeatTask.start();
         logger.info("Master node : {} registered to registry center successfully", masterConfig.getMasterAddress());
 

@@ -51,6 +51,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 
 /**
  * remoting netty server
+ * 由netty封装的服务端
  */
 public class NettyRemotingServer {
 
@@ -105,6 +106,7 @@ public class NettyRemotingServer {
         this.serverConfig = serverConfig;
         ThreadFactory bossThreadFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat("NettyServerBossThread_%s").build();
         ThreadFactory workerThreadFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat("NettyServerWorkerThread_%s").build();
+        //调用netty底层的创建epoll的方法(根据是否出现异常判断是否是epoll环境)
         if (Epoll.isAvailable()) {
             this.bossGroup = new EpollEventLoopGroup(1, bossThreadFactory);
             this.workGroup = new EpollEventLoopGroup(serverConfig.getWorkerThread(), workerThreadFactory);
@@ -120,11 +122,11 @@ public class NettyRemotingServer {
     public void start() {
         if (isStarted.compareAndSet(false, true)) {
             this.serverBootstrap
-                    .group(this.bossGroup, this.workGroup)
-                    .channel(NettyUtils.getServerSocketChannelClass())
-                    .option(ChannelOption.SO_REUSEADDR, true)
-                    .option(ChannelOption.SO_BACKLOG, serverConfig.getSoBacklog())
-                    .childOption(ChannelOption.SO_KEEPALIVE, serverConfig.isSoKeepalive())
+                    .group(this.bossGroup, this.workGroup)//根据环境自动判断
+                    .channel(NettyUtils.getServerSocketChannelClass())//根据环境自动判断
+                    .option(ChannelOption.SO_REUSEADDR, true)//设置可以重复监听同一个端口
+                    .option(ChannelOption.SO_BACKLOG, serverConfig.getSoBacklog())//设置客户端请求的等待队列大小 默认服务端一次只能处理一个客户端请求 剩余的在队列中顺序等待
+                    .childOption(ChannelOption.SO_KEEPALIVE, serverConfig.isSoKeepalive())//..剩下的就是一堆配置
                     .childOption(ChannelOption.TCP_NODELAY, serverConfig.isTcpNoDelay())
                     .childOption(ChannelOption.SO_SNDBUF, serverConfig.getSendBufferSize())
                     .childOption(ChannelOption.SO_RCVBUF, serverConfig.getReceiveBufferSize())
@@ -155,7 +157,7 @@ public class NettyRemotingServer {
 
     /**
      * init netty channel
-     *
+     *添加自定义的编码和解码coder以及之前注册的一大堆处理器serverHandler
      * @param ch socket channel
      */
     private void initNettyChannel(SocketChannel ch) {
