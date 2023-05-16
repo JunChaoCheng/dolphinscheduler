@@ -19,6 +19,7 @@ package org.apache.dolphinscheduler.dao.utils;
 
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.TASK_TYPE_CONDITIONS;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.dolphinscheduler.common.Constants;
 import org.apache.dolphinscheduler.common.enums.TaskDependType;
 import org.apache.dolphinscheduler.common.graph.DAG;
@@ -34,11 +35,7 @@ import org.apache.dolphinscheduler.plugin.task.api.model.SwitchResultVo;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.SwitchParameters;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -146,9 +143,12 @@ public class DagHelperTest {
      */
     @Test
     public void testParsePostNodeList() throws IOException {
+        //注意这里从3,8开始
         DAG<String, TaskNode, TaskNodeRelation> dag = generateDag();
         Map<String, TaskInstance> completeTaskList = new HashMap<>();
         Map<String, TaskNode> skipNodeList = new HashMap<>();
+
+        Collection<String> beginNode = dag.getBeginNode();
 
         Set<String> postNodes = null;
         // complete : null

@@ -300,6 +300,7 @@ public class DagHelper {
                                              DAG<String, TaskNode, TaskNodeRelation> dag,
                                              Map<String, TaskInstance> completeTaskList) {
         Set<String> postNodeList = new HashSet<>();
+        //开始节点
         Collection<String> startVertexes = new ArrayList<>();
 
         if (preNodeCode == null) {
@@ -416,9 +417,10 @@ public class DagHelper {
     private static List<String> skipTaskNode4Switch(TaskNode taskNode, Map<String, TaskNode> skipTaskNodeList,
                                                     Map<String, TaskInstance> completeTaskList,
                                                     DAG<String, TaskNode, TaskNodeRelation> dag) {
-
+        //switch的执行条件参数
         SwitchParameters switchParameters =
                 completeTaskList.get(Long.toString(taskNode.getCode())).getSwitchDependency();
+
         int resultConditionLocation = switchParameters.getResultConditionLocation();
         List<SwitchResultVo> conditionResultVoList = switchParameters.getDependTaskList();
         List<String> switchTaskList = conditionResultVoList.get(resultConditionLocation).getNextNode();

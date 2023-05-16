@@ -824,6 +824,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
             logger.info("The workflowInstance is not a newly running instance, runtimes: {}, recover flag: {}",
                     processInstance.getRunTimes(),
                     processInstance.getRecovery());
+            //所有有效的taskinstanceList
             List<TaskInstance> validTaskInstanceList =
                     processService.findValidTaskListByProcessId(processInstance.getId());
             for (TaskInstance task : validTaskInstanceList) {
@@ -833,6 +834,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
                             "Check the taskInstance from a exist workflowInstance, existTaskInstanceCode: {}, taskInstanceStatus: {}",
                             task.getTaskCode(),
                             task.getState());
+                    //初始化队列 如果任务已经存在做更新操作
                     if (validTaskMap.containsKey(task.getTaskCode())) {
                         int oldTaskInstanceId = validTaskMap.get(task.getTaskCode());
                         TaskInstance oldTaskInstance = taskInstanceMap.get(oldTaskInstanceId);
@@ -845,6 +847,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
                                 task.getTaskCode());
                     }
 
+                    //
                     validTaskMap.put(task.getTaskCode(), task.getId());
                     taskInstanceMap.put(task.getId(), task);
 
@@ -856,6 +859,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
                             dag)) {
                         continue;
                     }
+                    //容错的任务直接加到standby队列中
                     if (task.taskCanRetry()) {
                         if (task.getState().isNeedFaultTolerance()) {
                             // tolerantTaskInstance add to standby list directly
@@ -866,6 +870,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
                         }
                         continue;
                     }
+                    //失败任务放入错误map中
                     if (task.getState().isFailure()) {
                         errorTaskMap.put(task.getTaskCode(), task.getId());
                     }
@@ -1308,6 +1313,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
     }
 
     private void submitPostNode(String parentNodeCode) throws StateEventHandleException {
+        //不同的任务类型获取不同的tasklist
         Set<String> submitTaskNodeList =
                 DagHelper.parsePostNodes(parentNodeCode, skipTaskNodeMap, dag, getCompleteTaskInstanceMap());
         List<TaskInstance> taskInstances = new ArrayList<>();
@@ -1357,6 +1363,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
 
             addTaskToStandByList(task);
         }
+        //从队列取task提交
         submitStandByTask();
         updateProcessInstanceState();
     }
@@ -1824,6 +1831,7 @@ public class WorkflowExecuteRunnable implements Callable<WorkflowSubmitStatue> {
             }
             DependResult dependResult = getDependResultForTask(task);
             if (DependResult.SUCCESS == dependResult) {
+                //提交task到worker
                 Optional<TaskInstance> taskInstanceOptional = submitTaskExec(task);
                 if (!taskInstanceOptional.isPresent()) {
                     this.taskFailedSubmit = true;

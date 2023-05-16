@@ -40,7 +40,12 @@ import org.slf4j.LoggerFactory;
  * Node: node
  * NodeInfo：node description information
  * EdgeInfo: edge description information
- */
+ *      4 ->   -> 6
+ *          \ /
+ * 1 -> 2 -> 3 -> 5 -> 7
+ *       \       /
+ *        -> 8 ->
+*/
 public class DAG<Node, NodeInfo, EdgeInfo> {
     private static final Logger logger = LoggerFactory.getLogger(DAG.class);
 
@@ -49,16 +54,19 @@ public class DAG<Node, NodeInfo, EdgeInfo> {
     /**
      * node map, key is node, value is node information
      */
+    //上面例子这里存所有不重复的节点
     private final Map<Node, NodeInfo> nodesMap;
 
     /**
      * edge map. key is node of origin;value is Map with key for destination node and value for edge
      */
+    //上面例子这里存的是{5,{7}}
     private final Map<Node, Map<Node, EdgeInfo>> edgesMap;
 
     /**
      * reversed edge set，key is node of destination, value is Map with key for origin node and value for edge
      */
+    //反向依赖 上面例子这里存储{5,{3,8}}
     private final Map<Node, Map<Node, EdgeInfo>> reverseEdgesMap;
 
     public DAG() {
